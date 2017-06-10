@@ -20,6 +20,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(MEMORYCHECK_COMMAND_OPTIONS "--trace-children=yes --leak-check=full --error-exitcode=1")
 endif()
 
+if (MSVC AND MSVC_VERSION LESS 1600)
+  set(MSVC_LESS_1600 1)
+  add_definitions(-DMSVC_LESS_1600)
+endif()
+
 include (CTest)
 
 if(MSVC)

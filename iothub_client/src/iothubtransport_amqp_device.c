@@ -1147,10 +1147,10 @@ int device_send_message_disposition(DEVICE_HANDLE device_handle, DEVICE_MESSAGE_
 
 int device_set_retry_policy(DEVICE_HANDLE handle, IOTHUB_CLIENT_RETRY_POLICY policy, size_t retry_timeout_limit_in_seconds)
 {
-	(void)retry_timeout_limit_in_seconds;
-	(void)policy;
 	int result;
-
+    (void)retry_timeout_limit_in_seconds;
+	(void)policy;
+	
 	// Codes_SRS_DEVICE_09_080: [If `handle` is NULL, device_set_retry_policy shall return a non-zero result]
 	if (handle == NULL)
 	{

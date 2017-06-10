@@ -108,9 +108,10 @@ static void on_connection_io_error(void* context)
 
 static void on_connection_state_changed(void* context, CONNECTION_STATE new_connection_state, CONNECTION_STATE previous_connection_state)
 {
+    AMQP_CONNECTION_INSTANCE* instance;
 	(void)previous_connection_state;
 
-	AMQP_CONNECTION_INSTANCE* instance = (AMQP_CONNECTION_INSTANCE*)context;
+    instance = (AMQP_CONNECTION_INSTANCE*)context;
 
 	// Codes_SRS_IOTHUBTRANSPORT_AMQP_CONNECTION_09_063: [If `on_connection_state_changed` is called back, `instance->on_state_changed_callback` shall be invoked, if defined]
 	if (instance->cbs_handle == NULL || instance->sasl_io == NULL)

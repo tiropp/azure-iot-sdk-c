@@ -7,6 +7,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+#if defined(MSVC_LESS_1600)
+# include <stdio_ex.h>
+#endif
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/string_tokenizer.h"

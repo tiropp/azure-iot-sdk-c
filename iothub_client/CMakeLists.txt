@@ -128,6 +128,9 @@ if(${use_amqp})
         ${iothub_client_amqp_transport_common_c_files}
         ./src/iothubtransportamqp.c
     )
+    if( MSVC_LESS_1600 )
+      set_source_files_properties(./src/iothubtransportamqp.c PROPERTIES LANGUAGE CXX)
+    endif()
 
     set(iothub_client_amqp_transport_h_files
         ${iothub_client_amqp_transport_common_h_files}
@@ -212,6 +215,9 @@ include_directories(${SHARED_UTIL_INC_FOLDER})
 if (WINCE)
 include_directories(${SHARED_UTIL_INC_FOLDER}/azure_c_shared_utility/windowsce) #windowsce SDK doesn't have stdbool.h
 ENDIF()
+if( MSVC_LESS_1600 )
+  include_directories(${SHARED_UTIL_INC_FOLDER}/azure_c_shared_utility/msvc1500)
+endif()  
 
 
 include_directories(${IOTHUB_CLIENT_INC_FOLDER})
@@ -221,11 +227,14 @@ IF(WIN32)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
     add_definitions(-DGB_MEASURE_MEMORY_FOR_THIS -DGB_DEBUG_ALLOC)
   
-  if (WINCE) # Be lax with WEC 2013 compiler
+  if (WINCE OR MSVC_LESS_1600) # Be lax with WEC 2013 compiler
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
-    SET_SOURCE_FILES_PROPERTIES(src/iothub_client.c src/iothubtransport.c src/iothub_client_ll.c src/iothubtransporthttp.c src/blob.c PROPERTIES LANGUAGE CXX)
-  ENDIF(WINCE)
+    SET_SOURCE_FILES_PROPERTIES(src/iothub_client.c src/iothubtransport.c src/iothub_client_ll.c src/iothubtransporthttp.c src/blob.c PROPERTIES
+      LANGUAGE CXX
+      COMPILE_DEFINITIONS __STDC_LIMIT_MACROS=1
+      )
+  ENDIF()
 ENDIF(WIN32)
 
 if(${use_http})

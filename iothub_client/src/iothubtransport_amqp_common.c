@@ -720,13 +720,15 @@ static void prepare_device_for_connection_retry(AMQP_TRANSPORT_DEVICE_INSTANCE* 
 
 static void prepare_for_connection_retry(AMQP_TRANSPORT_INSTANCE* transport_instance)
 {
+    LIST_ITEM_HANDLE list_item;
+
 	// Codes_SRS_IOTHUBTRANSPORT_AMQP_COMMON_09_034: [`instance->tls_io` options shall be saved on `instance->saved_tls_options` using xio_retrieveoptions()]
 	if (save_underlying_io_transport_options(transport_instance) != RESULT_OK)
 	{
 		LogError("Failed saving TLS I/O options while preparing for connection retry; failure will be ignored");
 	}
 
-	LIST_ITEM_HANDLE list_item = singlylinkedlist_get_head_item(transport_instance->registered_devices);
+	list_item = singlylinkedlist_get_head_item(transport_instance->registered_devices);
 
 	while (list_item != NULL)
 	{
@@ -1132,11 +1134,12 @@ static int IoTHubTransport_AMQP_Common_Device_SetOption(TRANSPORT_LL_HANDLE hand
 		result = __FAILURE__;
 	}
 	else
-	{
+    {
+        LIST_ITEM_HANDLE list_item;
 		AMQP_TRANSPORT_INSTANCE* instance = (AMQP_TRANSPORT_INSTANCE*)handle;
 		result = RESULT_OK;
 
-		LIST_ITEM_HANDLE list_item = singlylinkedlist_get_head_item(instance->registered_devices);
+		list_item = singlylinkedlist_get_head_item(instance->registered_devices);
 
 		while (list_item != NULL)
 		{
@@ -1422,9 +1425,10 @@ void IoTHubTransport_AMQP_Common_Unsubscribe(IOTHUB_DEVICE_HANDLE handle)
 
 int IoTHubTransport_AMQP_Common_Subscribe_DeviceTwin(IOTHUB_DEVICE_HANDLE handle)
 {
+    int result;
     (void)handle;
     /*Codes_SRS_IOTHUBTRANSPORT_AMQP_COMMON_02_009: [ IoTHubTransport_AMQP_Common_Subscribe_DeviceTwin shall return a non-zero value. ]*/
-    int result = __FAILURE__;
+    result = __FAILURE__;
     LogError("IoTHubTransport_AMQP_Common_Subscribe_DeviceTwin Not supported");
     return result;
 }
@@ -1492,12 +1496,13 @@ void IoTHubTransport_AMQP_Common_Unsubscribe_DeviceMethod(IOTHUB_DEVICE_HANDLE h
 
 int IoTHubTransport_AMQP_Common_DeviceMethod_Response(IOTHUB_DEVICE_HANDLE handle, METHOD_HANDLE methodId, const unsigned char* response, size_t response_size, int status_response)
 {
+    int result;
+    AMQP_TRANSPORT_DEVICE_INSTANCE* device_state;
     (void)response;
     (void)response_size;
     (void)status_response;
     (void)methodId;
-    int result;
-    AMQP_TRANSPORT_DEVICE_INSTANCE* device_state = (AMQP_TRANSPORT_DEVICE_INSTANCE*)handle;
+    device_state = (AMQP_TRANSPORT_DEVICE_INSTANCE*)handle;
     if (device_state != NULL)
     {
 #ifdef WIP_C2D_METHODS_AMQP /* This feature is WIP, do not use yet */

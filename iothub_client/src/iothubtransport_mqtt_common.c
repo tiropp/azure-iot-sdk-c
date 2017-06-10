@@ -277,6 +277,7 @@ static int RetryPolicy_Exponential_BackOff_With_Jitter(bool *permit, size_t* del
 
     if (retryContextCallback != NULL && permit != NULL && delay != NULL)
     {
+        size_t halfDelta;
         RETRY_LOGIC *retryLogic = (RETRY_LOGIC*)retryContextCallback;
         int numOfFailures = (int) retryLogic->retrycount;
         *permit = true;
@@ -288,7 +289,7 @@ static int RetryPolicy_Exponential_BackOff_With_Jitter(bool *permit, size_t* del
             2. delay with jitter = delay + rand_between(0, delay/2)
         */
 
-        size_t halfDelta = ((1 << numOfFailures) - 1) / 4;
+        halfDelta = ((1 << numOfFailures) - 1) / 4;
         if (halfDelta > 0)
         {
             *delay = halfDelta + (rand() % (int)halfDelta);
@@ -691,8 +692,8 @@ static int parse_device_twin_topic_info(const char* resp_topic, bool* patch_msg,
         }
         else
         {
-            result = __FAILURE__;
             size_t token_count = 0;
+            result = __FAILURE__;
             while (STRING_TOKENIZER_get_next_token(token_handle, token_value, "/") == 0)
             {
                 if (token_count == 2)
@@ -928,6 +929,7 @@ static int publish_device_method_message(MQTTTRANSPORT_HANDLE_DATA* transport_da
 static int publish_device_twin_get_message(MQTTTRANSPORT_HANDLE_DATA* transport_data)
 {
     int result;
+    MQTT_MESSAGE_HANDLE mqtt_get_msg;
     MQTT_DEVICE_TWIN_ITEM* mqtt_info = (MQTT_DEVICE_TWIN_ITEM*)malloc(sizeof(MQTT_DEVICE_TWIN_ITEM));
     if (mqtt_info == NULL)
     {
@@ -936,6 +938,7 @@ static int publish_device_twin_get_message(MQTTTRANSPORT_HANDLE_DATA* transport_
     }
     else
     {
+        STRING_HANDLE msg_topic;
         mqtt_info->packet_id = get_next_packet_id(transport_data);
         mqtt_info->iothub_msg_id = 0;
         mqtt_info->device_twin_msg_type = RETRIEVE_PROPERTIES;
@@ -943,7 +946,7 @@ static int publish_device_twin_get_message(MQTTTRANSPORT_HANDLE_DATA* transport_
         mqtt_info->msgPublishTime = 0;
         mqtt_info->iothub_type = IOTHUB_TYPE_DEVICE_TWIN;
         mqtt_info->device_twin_data = NULL;
-        STRING_HANDLE msg_topic = STRING_construct_sprintf(GET_PROPERTIES_TOPIC, mqtt_info->packet_id);
+        msg_topic = STRING_construct_sprintf(GET_PROPERTIES_TOPIC, mqtt_info->packet_id);
         if (msg_topic == NULL)
         {
             LogError("Failed constructing get Prop topic.");
@@ -952,7 +955,7 @@ static int publish_device_twin_get_message(MQTTTRANSPORT_HANDLE_DATA* transport_
         }
         else
         {
-            MQTT_MESSAGE_HANDLE mqtt_get_msg = mqttmessage_create(mqtt_info->packet_id, STRING_c_str(msg_topic), DELIVER_AT_MOST_ONCE, NULL, 0);
+            mqtt_get_msg = mqttmessage_create(mqtt_info->packet_id, STRING_c_str(msg_topic), DELIVER_AT_MOST_ONCE, NULL, 0);
             if (mqtt_get_msg == NULL)
             {
                 LogError("Failed constructing mqtt message.");
@@ -983,9 +986,10 @@ static int publish_device_twin_get_message(MQTTTRANSPORT_HANDLE_DATA* transport_
 static int publish_device_twin_message(MQTTTRANSPORT_HANDLE_DATA* transport_data, IOTHUB_DEVICE_TWIN* device_twin_info, MQTT_DEVICE_TWIN_ITEM* mqtt_info)
 {
     int result;
+    STRING_HANDLE msgTopic;
     mqtt_info->packet_id = get_next_packet_id(transport_data);
     mqtt_info->device_twin_msg_type = REPORTED_STATE;
-    STRING_HANDLE msgTopic = STRING_construct_sprintf(REPORTED_PROPERTIES_TOPIC, mqtt_info->packet_id);
+    msgTopic = STRING_construct_sprintf(REPORTED_PROPERTIES_TOPIC, mqtt_info->packet_id);
     if (msgTopic == NULL)
     {
         LogError("Failed constructing reported prop topic.");
@@ -1233,8 +1237,9 @@ static void mqtt_notification_callback(MQTT_MESSAGE_HANDLE msgHandle, void* call
                         while (dev_twin_item != &transportData->ack_waiting_queue)
                         {
                             DLIST_ENTRY saveListEntry;
+                            MQTT_DEVICE_TWIN_ITEM* msg_entry;
                             saveListEntry.Flink = dev_twin_item->Flink;
-                            MQTT_DEVICE_TWIN_ITEM* msg_entry = containingRecord(dev_twin_item, MQTT_DEVICE_TWIN_ITEM, entry);
+                            msg_entry = containingRecord(dev_twin_item, MQTT_DEVICE_TWIN_ITEM, entry);
                             if (request_id == msg_entry->packet_id)
                             {
                                 (void)DList_RemoveEntryList(dev_twin_item);
@@ -2542,11 +2547,11 @@ void IoTHubTransport_MQTT_Common_DoWork(TRANSPORT_LL_HANDLE handle, IOTHUB_CLIEN
                 PDLIST_ENTRY currentListEntry = transport_data->telemetry_waitingForAck.Flink;
                 while (currentListEntry != &transport_data->telemetry_waitingForAck)
                 {
+                    tickcounter_ms_t current_ms;
                     MQTT_MESSAGE_DETAILS_LIST* mqttMsgEntry = containingRecord(currentListEntry, MQTT_MESSAGE_DETAILS_LIST, entry);
                     DLIST_ENTRY nextListEntry;
                     nextListEntry.Flink = currentListEntry->Flink;
 
-                    tickcounter_ms_t current_ms;
                     (void)tickcounter_get_current_ms(transport_data->msgTickCounter, &current_ms);
                     /* Codes_SRS_IOTHUB_MQTT_TRANSPORT_07_033: [IoTHubTransport_MQTT_Common_DoWork shall iterate through the Waiting Acknowledge messages looking for any message that has been waiting longer than 2 min.]*/
                     if (((current_ms - mqttMsgEntry->msgPublishTime) / 1000) > RESEND_TIMEOUT_VALUE_MIN)
@@ -2584,13 +2589,14 @@ void IoTHubTransport_MQTT_Common_DoWork(TRANSPORT_LL_HANDLE handle, IOTHUB_CLIEN
                 /* Codes_SRS_IOTHUB_MQTT_TRANSPORT_07_027: [IoTHubTransport_MQTT_Common_DoWork shall inspect the "waitingToSend" DLIST passed in config structure.] */
                 while (currentListEntry != transport_data->waitingToSend)
                 {
+                    const unsigned char* messagePayload;
+                    size_t messageLength;
                     IOTHUB_MESSAGE_LIST* iothubMsgList = containingRecord(currentListEntry, IOTHUB_MESSAGE_LIST, entry);
                     DLIST_ENTRY savedFromCurrentListEntry;
                     savedFromCurrentListEntry.Flink = currentListEntry->Flink;
 
                     /* Codes_SRS_IOTHUB_MQTT_TRANSPORT_07_027: [IoTHubTransport_MQTT_Common_DoWork shall inspect the "waitingToSend" DLIST passed in config structure.] */
-                    size_t messageLength;
-                    const unsigned char* messagePayload = RetrieveMessagePayload(iothubMsgList->messageHandle, &messageLength);
+                    messagePayload = RetrieveMessagePayload(iothubMsgList->messageHandle, &messageLength);
                     if (messageLength == 0 || messagePayload == NULL)
                     {
                         LogError("Failure result from IoTHubMessage_GetData");
@@ -2901,9 +2907,9 @@ STRING_HANDLE IoTHubTransport_MQTT_Common_GetHostname(TRANSPORT_LL_HANDLE handle
 
 IOTHUB_CLIENT_RESULT IoTHubTransport_MQTT_Common_SendMessageDisposition(MESSAGE_CALLBACK_INFO* message_data, IOTHUBMESSAGE_DISPOSITION_RESULT disposition)
 {
+    IOTHUB_CLIENT_RESULT result;
     (void)disposition;
 
-    IOTHUB_CLIENT_RESULT result;
     if (message_data)
     {
         if (message_data->messageHandle)
