@@ -175,7 +175,9 @@ if(${use_mqtt})
         ./src/iothubtransport_mqtt_common.c
         ./src/iothubtransportmqtt.c
     )
-    set_source_files_properties(src/iothubtransport_mqtt_common.c PROPERTIES LANGUAGE CXX)
+    if( MSVC_LESS_1600_WINCE )
+      set_source_files_properties(src/iothubtransport_mqtt_common.c PROPERTIES LANGUAGE CXX)
+    endif()
   
     set(iothub_client_mqtt_transport_h_files
         ${iothub_client_ll_transport_h_files}
