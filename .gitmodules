@@ -9,7 +9,7 @@
 	url = https://github.com/tiropp/azure-uamqp-c.git
 [submodule "parson"]
 	path = parson
-	url = https://github.com/kgabis/parson
+	url = https://github.com/tiropp/parson
 [submodule "iothub_service_client/parson"]
 	path = iothub_service_client/parson
-	url = https://github.com/kgabis/parson
+	url = https://github.com/tiropp/parson
