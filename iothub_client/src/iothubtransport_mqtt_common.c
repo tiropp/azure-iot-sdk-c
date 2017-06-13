@@ -1,8 +1,14 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+#if MSVC_LESS_1600_WINCE
+# include <stdint.h>
+#endif
 #include <stdlib.h>
 #include <ctype.h>
+#if MSVC_LESS_1600_WINCE
+# include <ctime>
+#endif
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
 
@@ -31,6 +37,11 @@
 #include <stdio.h>
 
 #include <limits.h>
+
+#if MSVC_LESS_1600_WINCE
+// Need to have PRIu16 and such macros for C++ as well
+# define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 #define SAS_TOKEN_DEFAULT_LIFETIME  3600
@@ -1097,10 +1108,10 @@ static int extractMqttProperties(IOTHUB_MESSAGE_HANDLE IoTHubMessage, const char
                                     if (*iterator == '=')
                                     {
                                         size_t nameLen = iterator - tokenData;
-                                        char* propName = malloc(nameLen + 1);
+                                        char* propName = (char*)malloc(nameLen + 1);
 
                                         size_t valLen = tokenLen - (nameLen + 1) + 1;
-                                        char* propValue = malloc(valLen + 1);
+                                        char* propValue = (char*)malloc(valLen + 1);
 
                                         if (propName == NULL || propValue == NULL)
                                         {
@@ -1151,10 +1162,10 @@ static int extractMqttProperties(IOTHUB_MESSAGE_HANDLE IoTHubMessage, const char
                                     if (*iterator == '=')
                                     {
                                         size_t nameLen = iterator - tokenData;
-                                        char* propName = malloc(nameLen + 1);
+                                        char* propName = (char*)malloc(nameLen + 1);
 
                                         size_t valLen = tokenLen - (nameLen + 1) + 1;
-                                        char* propValue = malloc(valLen + 1);
+                                        char* propValue = (char*)malloc(valLen + 1);
 
                                         if (propName == NULL || propValue == NULL)
                                         {
@@ -1270,7 +1281,7 @@ static void mqtt_notification_callback(MQTT_MESSAGE_HANDLE msgHandle, void* call
                 }
                 else
                 {
-                    DEVICE_METHOD_INFO* dev_method_info = malloc(sizeof(DEVICE_METHOD_INFO) );
+                    DEVICE_METHOD_INFO* dev_method_info = (DEVICE_METHOD_INFO*)malloc(sizeof(DEVICE_METHOD_INFO) );
                     if (dev_method_info == NULL)
                     {
                         LogError("Failure: allocating DEVICE_METHOD_INFO object");

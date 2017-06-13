@@ -23,6 +23,11 @@ endif()
 if (MSVC AND MSVC_VERSION LESS 1600)
   set(MSVC_LESS_1600 1)
   add_definitions(-DMSVC_LESS_1600)
+
+  if( WINCE )
+    set(MSVC_LESS_1600_WINCE 1)
+    add_definitions(-DMSVC_LESS_1600_WINCE)
+  endif()
 endif()
 
 include (CTest)
@@ -120,6 +125,8 @@ endif()
 if(NOT "${compileOption_CXX}" STREQUAL "OFF")
     set(CMAKE_CXX_FLAGS "${compileOption_CXX} ${CMAKE_CXX_FLAGS}")
 endif()
+
+include_directories( ${EXTERNAL_INCLUDE_DIRS} )
 
 include("dependencies.cmake")
 

@@ -28,7 +28,7 @@
 #include "blob.h"
 
 
-#ifdef WINCE
+#if defined(WINCE) && !MSVC_LESS_1600_WINCE
 #include <stdarg.h>
 // Returns number of characters copied.
 int snprintf(char * s, size_t n, const char * format, ...)
