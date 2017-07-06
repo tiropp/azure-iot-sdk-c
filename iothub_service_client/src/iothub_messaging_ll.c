@@ -3,6 +3,9 @@
 
 #include <stdlib.h>
 #include <ctype.h>
+#if defined(MSVC_LESS_1600_WINCE)
+# include <ctime>
+#endif
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
@@ -24,6 +27,11 @@
 
 #include "iothub_messaging_ll.h"
 #include "iothub_sc_version.h"
+
+#if defined(MSVC_LESS_1600)
+# define snprintf _snprintf
+#endif
+    
 
 typedef struct CALLBACK_DATA_TAG
 {
@@ -714,7 +722,9 @@ static AMQP_VALUE IoTHubMessaging_LL_FeedbackMessageReceived(const void* context
                 else
                 {
                     bool isLoopFailed = false;
-                    for (size_t i = 0; i < array_count; i++)
+                    size_t i;
+                    LIST_ITEM_HANDLE feedbackRecord;
+                    for (i = 0; i < array_count; i++)
                     {
                         if ((feedback_object = json_array_get_object(feedback_array, i)) == NULL)
                         {
@@ -794,7 +804,7 @@ static AMQP_VALUE IoTHubMessaging_LL_FeedbackMessageReceived(const void* context
                     }
 
                     /*Codes_SRS_IOTHUBMESSAGING_12_078: [** IoTHubMessaging_LL_FeedbackMessageReceived shall do clean up before exits ] */
-                    LIST_ITEM_HANDLE feedbackRecord = singlylinkedlist_get_head_item(feedbackBatch->feedbackRecordList);
+                    feedbackRecord = singlylinkedlist_get_head_item(feedbackBatch->feedbackRecordList);
                     while (feedbackRecord != NULL)
                     {
                         IOTHUB_SERVICE_FEEDBACK_RECORD* feedback = (IOTHUB_SERVICE_FEEDBACK_RECORD*)singlylinkedlist_item_get_value(feedbackRecord);
@@ -1105,12 +1115,12 @@ IOTHUB_MESSAGING_RESULT IoTHubMessaging_LL_Open(IOTHUB_MESSAGING_HANDLE messagin
             }
             else
             {
+                const IO_INTERFACE_DESCRIPTION* tlsio_interface;
+                
                 tls_io_config.hostname = messagingHandle->hostname;
                 tls_io_config.port = 5671;
                 tls_io_config.underlying_io_interface = NULL;
                 tls_io_config.underlying_io_parameters = NULL;
-
-                const IO_INTERFACE_DESCRIPTION* tlsio_interface;
 
                 /*Codes_SRS_IOTHUBMESSAGING_12_011: [ IoTHubMessaging_LL_Open shall create uAMQP TLSIO by calling the xio_create ] */
                 if ((tlsio_interface = platform_get_default_tlsio()) == NULL)
@@ -1132,13 +1142,13 @@ IOTHUB_MESSAGING_RESULT IoTHubMessaging_LL_Open(IOTHUB_MESSAGING_HANDLE messagin
                 }
                 else
                 {
+                    const IO_INTERFACE_DESCRIPTION* saslclientio_interface;
+                    
                     messagingHandle->callback_data->openCompleteCompleteCallback = openCompleteCallback;
                     messagingHandle->callback_data->openUserContext = userContextCallback;
 
                     sasl_io_config.sasl_mechanism = messagingHandle->sasl_mechanism_handle;
                     sasl_io_config.underlying_io = messagingHandle->tls_io;
-
-                    const IO_INTERFACE_DESCRIPTION* saslclientio_interface;
 
                     /*Codes_SRS_IOTHUBMESSAGING_12_012: [ IoTHubMessaging_LL_Open shall create uAMQP SASL IO by calling the xio_create with the previously created SASL mechanism and TLSIO] */
                     if ((saslclientio_interface = saslclientio_get_interface_description()) == NULL)

@@ -35,10 +35,21 @@ set(iothub_service_client_h_files
 )
 
 if(MSVC)
-set_source_files_properties(../parson/parson.c PROPERTIES COMPILE_FLAGS "/wd4244 /wd4232")
+  set_source_files_properties(../parson/parson.c PROPERTIES COMPILE_FLAGS "/wd4244 /wd4232")
+  if( MSVC_LESS_1600 )
+    set_source_files_properties(${iothub_service_client_c_files} PROPERTIES COMPILE_FLAGS "/wd4127")
+
+    if( MSVC_LESS_1600_WINCE )
+      set_source_files_properties(./src/iothub_messaging_ll.c PROPERTIES COMPILE_FLAGS "/wd4127 /wd4214 /wd4201")
+    endif()
+  endif()
 endif()
 
 include_directories(${SHARED_UTIL_INC_FOLDER})
+if (MSVC_LESS_1600)
+  include_directories(${SHARED_UTIL_INC_FOLDER}/azure_c_shared_utility/msvc1500)
+endif()
+
 
 include_directories(${UAMQP_INC_FOLDER})
 include_directories(${UAMQP_INCLUDES})
@@ -52,6 +63,16 @@ IF(WIN32)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	add_definitions(-DGB_MEASURE_MEMORY_FOR_THIS -DGB_DEBUG_ALLOC)
 ENDIF(WIN32)
+
+if (MSVC AND MSVC_VERSION LESS 1600)
+  set(MSVC_LESS_1600 1)
+  add_definitions(-DMSVC_LESS_1600)
+
+  if( WINCE )
+    set(MSVC_LESS_1600_WINCE 1)
+    add_definitions(-DMSVC_LESS_1600_WINCE)
+  endif()  
+endif()
 
 if (${build_as_dynamic})
     add_library(iothub_service_client SHARED ${iothub_service_client_c_files} ${iothub_service_client_h_files} ./src/iothub_service_client.def)

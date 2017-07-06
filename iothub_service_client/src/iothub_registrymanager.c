@@ -17,6 +17,10 @@
 #include "iothub_registrymanager.h"
 #include "iothub_sc_version.h"
 
+#if defined(MSVC_LESS_1600)
+# define snprintf _snprintf
+#endif
+
 #define IOTHUB_REQUEST_MODE_VALUES    \
     IOTHUB_REQUEST_CREATE,            \
     IOTHUB_REQUEST_GET,               \
@@ -549,10 +553,13 @@ static IOTHUB_REGISTRYMANAGER_RESULT parseDeviceListJson(BUFFER_HANDLE jsonBuffe
         }
         else
         {
+            size_t array_count;
+            size_t i;
+            
             result = IOTHUB_REGISTRYMANAGER_OK;
 
-            size_t array_count = json_array_get_count(device_array);
-            for (size_t i = 0; i < array_count; i++)
+            array_count = json_array_get_count(device_array);
+            for (i = 0; i < array_count; i++)
             {
                 IOTHUB_DEVICE* iothubDevice = NULL;
                 JSON_Object* device_object = NULL;
@@ -573,6 +580,23 @@ static IOTHUB_REGISTRYMANAGER_RESULT parseDeviceListJson(BUFFER_HANDLE jsonBuffe
                 }
                 else
                 {
+                    const char* deviceId;
+                    const char* primaryKey;
+                    const char* secondaryKey;
+                    const char* generationId;
+                    const char* eTag;
+                    const char* connectionState;
+                    const char* connectionStateUpdatedTime;
+                    const char* status;
+                    const char* statusReason;
+                    const char* statusUpdatedTime;
+                    const char* lastActivityTime;
+                    const char* cloudToDeviceMessageCount;
+                    const char* isManaged;
+                    const char* configuration;
+                    const char* deviceProperties;
+                    const char* serviceProperties;
+
                     iothubDevice->deviceId = NULL;
                     iothubDevice->primaryKey = NULL;
                     iothubDevice->secondaryKey = NULL;
@@ -589,22 +613,22 @@ static IOTHUB_REGISTRYMANAGER_RESULT parseDeviceListJson(BUFFER_HANDLE jsonBuffe
                     iothubDevice->configuration = NULL;
                     iothubDevice->deviceProperties = NULL;
                     iothubDevice->serviceProperties = NULL;
-                    const char* deviceId = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_NAME);
-                    const char* primaryKey = (char*)json_object_dotget_string(device_object, DEVICE_JSON_KEY_DEVICE_PRIMARY_KEY);
-                    const char* secondaryKey = (char*)json_object_dotget_string(device_object, DEVICE_JSON_KEY_DEVICE_SECONDARY_KEY);
-                    const char* generationId = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_GENERATION_ID);
-                    const char* eTag = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_ETAG);
-                    const char* connectionState = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CONNECTIONSTATE);
-                    const char* connectionStateUpdatedTime = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CONNECTIONSTATEUPDATEDTIME);
-                    const char* status = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_STATUS);
-                    const char* statusReason = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_STATUSREASON);
-                    const char* statusUpdatedTime = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_STATUSUPDATEDTIME);
-                    const char* lastActivityTime = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_LASTACTIVITYTIME);
-                    const char* cloudToDeviceMessageCount = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CLOUDTODEVICEMESSAGECOUNT);
-                    const char* isManaged = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_ISMANAGED);
-                    const char* configuration = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CONFIGURATION);
-                    const char* deviceProperties = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_DEVICEROPERTIES);
-                    const char* serviceProperties = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_SERVICEPROPERTIES);
+                    deviceId = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_NAME);
+                    primaryKey = (char*)json_object_dotget_string(device_object, DEVICE_JSON_KEY_DEVICE_PRIMARY_KEY);
+                    secondaryKey = (char*)json_object_dotget_string(device_object, DEVICE_JSON_KEY_DEVICE_SECONDARY_KEY);
+                    generationId = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_GENERATION_ID);
+                    eTag = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_ETAG);
+                    connectionState = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CONNECTIONSTATE);
+                    connectionStateUpdatedTime = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CONNECTIONSTATEUPDATEDTIME);
+                    status = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_STATUS);
+                    statusReason = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_STATUSREASON);
+                    statusUpdatedTime = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_STATUSUPDATEDTIME);
+                    lastActivityTime = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_LASTACTIVITYTIME);
+                    cloudToDeviceMessageCount = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CLOUDTODEVICEMESSAGECOUNT);
+                    isManaged = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_ISMANAGED);
+                    configuration = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_CONFIGURATION);
+                    deviceProperties = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_DEVICEROPERTIES);
+                    serviceProperties = (char*)json_object_get_string(device_object, DEVICE_JSON_KEY_DEVICE_SERVICEPROPERTIES);
 
                     if (primaryKey == NULL)
                     {
@@ -975,12 +999,13 @@ static IOTHUB_REGISTRYMANAGER_RESULT createRelativePath(IOTHUB_REQUEST_MODE iotH
 
     if (iotHubRequestMode == IOTHUB_REQUEST_GET_DEVICE_LIST)
     {
+        char numberStr[256];
+
         if ((numberOfDevices <= 0) || (numberOfDevices > IOTHUB_DEVICES_MAX_REQUEST))
         {
             numberOfDevices = IOTHUB_DEVICES_MAX_REQUEST;
         }
 
-        char numberStr[256];
         result = IOTHUB_REGISTRYMANAGER_ERROR;
         if (snprintf(numberStr, 256, "%zu", numberOfDevices) > 0)
         {
@@ -1400,14 +1425,14 @@ IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateDevice(IOTHUB_REGISTRY
             }
             else
             {
+                BUFFER_HANDLE deviceJsonBuffer = NULL;
+                BUFFER_HANDLE responseBuffer = NULL;
+                
                 /*Codes_SRS_IOTHUBREGISTRYMANAGER_12_012: [ IoTHubRegistryManager_CreateDevice shall set the "symmetricKey" value to deviceCreateInfo->primaryKey and deviceCreateInfo->secondaryKey ] */
                 tempDeviceInfo->deviceId = deviceCreateInfo->deviceId;
                 tempDeviceInfo->primaryKey = deviceCreateInfo->primaryKey;
                 tempDeviceInfo->secondaryKey = deviceCreateInfo->secondaryKey;
                 tempDeviceInfo->authMethod = deviceCreateInfo->authMethod;
-
-                BUFFER_HANDLE deviceJsonBuffer = NULL;
-                BUFFER_HANDLE responseBuffer = NULL;
 
                 /*Codes_SRS_IOTHUBREGISTRYMANAGER_12_010: [ IoTHubRegistryManager_CreateDevice shall create a flat "key1:value2,key2:value2..." JSON representation from the given deviceCreateInfo parameter using the following parson APIs: json_value_init_object, json_value_get_object, json_object_set_string, json_object_dotset_string ] */
                 if ((deviceJsonBuffer = constructDeviceJson(tempDeviceInfo)) == NULL)
@@ -1554,15 +1579,15 @@ IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_UpdateDevice(IOTHUB_REGISTRY
             }
             else
             {
+                BUFFER_HANDLE deviceJsonBuffer = NULL;
+                BUFFER_HANDLE responseBuffer = NULL;
+
                 (void)memset(tempDeviceInfo, 0, sizeof(IOTHUB_DEVICE));
                 tempDeviceInfo->deviceId = deviceUpdate->deviceId;
                 tempDeviceInfo->primaryKey = deviceUpdate->primaryKey;
                 tempDeviceInfo->secondaryKey = deviceUpdate->secondaryKey;
                 tempDeviceInfo->authMethod = deviceUpdate->authMethod;
                 tempDeviceInfo->status = deviceUpdate->status;
-
-                BUFFER_HANDLE deviceJsonBuffer = NULL;
-                BUFFER_HANDLE responseBuffer = NULL;
 
                 /*Codes_SRS_IOTHUBREGISTRYMANAGER_12_041: [ IoTHubRegistryManager_UpdateDevice shall create a flat "key1:value2,key2:value2..." JSON representation from the given deviceCreateInfo parameter using the following parson APIs : json_value_init_object, json_value_get_object, json_object_set_string, json_object_dotset_string ] */
                 if ((deviceJsonBuffer = constructDeviceJson(tempDeviceInfo)) == NULL)
