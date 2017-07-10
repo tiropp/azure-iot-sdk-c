@@ -81,6 +81,7 @@ if(WIN32)
 else()
     option(use_openssl "set use_openssl to ON to use OpenSSL." ON)
 endif()
+option(use_openssl_11 "set use_openssl_11 to ON to use OpenSSL 1.1.x. Default OFF. Only relevant if the use_openssl option is set." OFF)
 
 #setting nuget_e2e_tests will only generate e2e tests to run with nuget packages.  Install-packages from Package Manager Console in VS before building the projects
 option(nuget_e2e_tests "set nuget_e2e_tests to ON to generate e2e tests to run with nuget packages (default is OFF)" OFF)

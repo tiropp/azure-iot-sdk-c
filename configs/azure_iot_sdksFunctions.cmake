@@ -12,6 +12,15 @@ function(linkUAMQP whatExecutableIsBuilding)
         target_link_libraries(${whatExecutableIsBuilding} uamqp aziotsharedutil ws2_32 secur32)
 
         if(${use_openssl})
+          if( ${use_openssl_11} )
+            target_link_libraries(${whatExecutableIsBuilding} $ENV{OpenSSLDir}/lib/libssl.lib $ENV{OpenSSLDir}/lib/libcrypto.lib)
+
+            file(COPY $ENV{OpenSSLDir}/bin/libssl-1_1.dll    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
+            file(COPY $ENV{OpenSSLDir}/bin/libcrypto-1_1.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
+
+            file(COPY $ENV{OpenSSLDir}/bin/libssl-1_1.dll    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+            file(COPY $ENV{OpenSSLDir}/bin/libcrypto-1_1.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+          else()
             target_link_libraries(${whatExecutableIsBuilding} $ENV{OpenSSLDir}/lib/ssleay32.lib $ENV{OpenSSLDir}/lib/libeay32.lib)
         
             file(COPY $ENV{OpenSSLDir}/bin/libeay32.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
@@ -19,6 +28,7 @@ function(linkUAMQP whatExecutableIsBuilding)
 
             file(COPY $ENV{OpenSSLDir}/bin/libeay32.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
             file(COPY $ENV{OpenSSLDir}/bin/ssleay32.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+          endif()
         endif()
     else()
         target_link_libraries(${whatExecutableIsBuilding} uamqp aziotsharedutil ${OPENSSL_LIBRARIES})
