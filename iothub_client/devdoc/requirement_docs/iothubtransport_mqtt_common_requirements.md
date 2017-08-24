@@ -181,7 +181,7 @@ int IoTHubTransport_MQTT_Common_Subscribe(TRANSPORT_LL_HANDLE handle)
 
 **SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_016: [** IoTHubTransport_MQTT_Common_Subscribe shall set a flag to enable mqtt_client_subscribe to be called to subscribe to the Message Topic.**]**
 
-**SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_035: [** If current packet state is not CONNACK, DISCONNECT_TYPE, or PACKET_TYPE_ERROR then IoTHubTransport_MQTT_Common_Subscribe shall set the packet state to SUBSCRIBE_TYPE.**]**   
+**SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_035: [** If current packet state is not CONNACK, DISCONNECT_TYPE, or PACKET_TYPE_ERROR then IoTHubTransport_MQTT_Common_Subscribe shall set the packet state to SUBSCRIBE_TYPE.**]**
 
 **SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_017: [** Upon failure IoTHubTransport_MQTT_Common_Subscribe shall return a non-zero value.**]**    
 
@@ -236,7 +236,7 @@ void IoTHubTransport_MQTT_Common_DoWork(TRANSPORT_LL_HANDLE handle, IOTHUB_CLIEN
 
 **SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_033: [** IoTHubTransport_MQTT_Common_DoWork shall iterate through the Waiting Acknowledge messages looking for any message that has been waiting longer than 2 min.**]**  
 
-**SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_034: [** If IoTHubTransport_MQTT_Common_DoWork has previously resent the message two times then it shall fail the message**]**  
+**SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_058: [** If the sas token has timed out `IoTHubTransport_MQTT_Common_DoWork` shall disconnect from the mqtt client and destroy the transport information and wait for reconnect. **]**
 
 ### IoTHubTransport_MQTT_Common_GetSendStatus
 
