@@ -1559,7 +1559,8 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_Destroy_One_Message_Ack_succeeds)
     IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
     umock_c_reset_all_calls();
 
-    STRICT_EXPECTED_CALL(mqtt_client_disconnect(TEST_MQTT_CLIENT_HANDLE))
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(TEST_MQTT_CLIENT_HANDLE))
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(xio_destroy(TEST_XIO_HANDLE))
         .IgnoreArgument(1);
@@ -1615,7 +1616,8 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_Destroy_succeeds)
     EXPECTED_CALL(STRING_delete(NULL));
 
     STRICT_EXPECTED_CALL(mqtt_client_deinit(TEST_MQTT_CLIENT_HANDLE));
-    STRICT_EXPECTED_CALL(mqtt_client_disconnect(TEST_MQTT_CLIENT_HANDLE));
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(TEST_MQTT_CLIENT_HANDLE));
     EXPECTED_CALL(xio_destroy(NULL));
     EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(tickcounter_destroy(IGNORED_PTR_ARG)).IgnoreArgument(1);
@@ -2203,7 +2205,9 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_SetOption_keepAlive_previous_connectio
 
     umock_c_reset_all_calls();
 
-    STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG)).IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(IoTHubClient_Auth_Get_Credential_Type(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG)).IgnoreArgument(1);
     STRICT_EXPECTED_CALL(xio_destroy(TEST_XIO_HANDLE)).IgnoreArgument(1);
 
     int keepAlive = 10;
@@ -2952,7 +2956,8 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_Destroy_frees_the_proxy_options)
     (void)IoTHubTransport_MQTT_Common_SetOption(handle, "proxy_data", &http_proxy_options);
     umock_c_reset_all_calls();
 
-    STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG))
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG)); 
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG))
         .IgnoreAllCalls();
     STRICT_EXPECTED_CALL(mqtt_client_deinit(IGNORED_PTR_ARG))
         .IgnoreAllCalls();
@@ -3944,6 +3949,154 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_DoWork_resend_message_succeeds)
     IoTHubTransport_MQTT_Common_Destroy(handle);
 }
 
+/* Tests_SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_034: [ If IoTHubTransport_MQTT_Common_DoWork has previously resent the message two times then it shall fail the message and reconnect to IoTHub ... ]*/
+/* Tests_SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_057: [ ... then go through all the rest of the waiting messages and reset the retryCount on the message. ]*/
+TEST_FUNCTION(IoTHubTransport_MQTT_Common_DoWork_message_timeout_succeeds)
+{
+    CONNECT_ACK connack = { true, CONNECTION_ACCEPTED };
+    SUBSCRIBE_ACK suback;
+    QOS_VALUE QosValue[] = { DELIVER_AT_LEAST_ONCE };
+    IOTHUB_MESSAGE_LIST message2;
+    TRANSPORT_LL_HANDLE handle;
+
+    // arrange
+    IOTHUBTRANSPORT_CONFIG config = { 0 };
+    SetupIothubTransportConfig(&config, TEST_DEVICE_ID, TEST_DEVICE_KEY, TEST_IOTHUB_NAME, TEST_IOTHUB_SUFFIX, TEST_PROTOCOL_GATEWAY_HOSTNAME);
+
+    handle = IoTHubTransport_MQTT_Common_Create(&config, get_IO_transport);
+
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+    g_fnMqttOperationCallback(TEST_MQTT_CLIENT_HANDLE, MQTT_CLIENT_ON_CONNACK, &connack, g_callbackCtx);
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    suback.packetId = 1234;
+    suback.qosCount = 1;
+    suback.qosReturn = QosValue;
+    g_fnMqttOperationCallback(TEST_MQTT_CLIENT_HANDLE, MQTT_CLIENT_ON_SUBSCRIBE_ACK, &suback, g_callbackCtx);
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    memset(&message2, 0, sizeof(IOTHUB_MESSAGE_LIST));
+    message2.messageHandle = TEST_IOTHUB_MSG_STRING;
+    DList_InsertTailList(config.waitingToSend, &(message2.entry));
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    g_current_ms += 5 * 60 * 1000;
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG))
+        .CopyOutArgumentBuffer(2, &g_current_ms, sizeof(g_current_ms));
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+    umock_c_reset_all_calls();
+
+    g_current_ms += 5 * 60 * 1000;
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG))
+        .CopyOutArgumentBuffer(2, &g_current_ms, sizeof(g_current_ms));
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(DList_RemoveEntryList(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(DList_InitializeListHead(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(DList_InsertTailList(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubClient_LL_SendComplete(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IOTHUB_CLIENT_CONFIRMATION_MESSAGE_TIMEOUT));
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(xio_destroy(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(mqtt_client_dowork(IGNORED_PTR_ARG));
+
+    // act
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    //assert
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    //cleanup
+    IoTHubTransport_MQTT_Common_Destroy(handle);
+}
+
+/* Tests_SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_034: [ If IoTHubTransport_MQTT_Common_DoWork has previously resent the message two times then it shall fail the message and reconnect to IoTHub ... ]*/
+/* Tests_SRS_IOTHUB_TRANSPORT_MQTT_COMMON_07_057: [ ... then go through all the rest of the waiting messages and reset the retryCount on the message. ]*/
+TEST_FUNCTION(IoTHubTransport_MQTT_Common_DoWork_2_message_timeout_succeeds)
+{
+    CONNECT_ACK connack = { true, CONNECTION_ACCEPTED };
+    SUBSCRIBE_ACK suback;
+    QOS_VALUE QosValue[] = { DELIVER_AT_LEAST_ONCE };
+    IOTHUB_MESSAGE_LIST message2;
+    IOTHUB_MESSAGE_LIST message1;
+    TRANSPORT_LL_HANDLE handle;
+
+    // arrange
+    IOTHUBTRANSPORT_CONFIG config = { 0 };
+    SetupIothubTransportConfig(&config, TEST_DEVICE_ID, TEST_DEVICE_KEY, TEST_IOTHUB_NAME, TEST_IOTHUB_SUFFIX, TEST_PROTOCOL_GATEWAY_HOSTNAME);
+
+    handle = IoTHubTransport_MQTT_Common_Create(&config, get_IO_transport);
+
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+    g_fnMqttOperationCallback(TEST_MQTT_CLIENT_HANDLE, MQTT_CLIENT_ON_CONNACK, &connack, g_callbackCtx);
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    suback.packetId = 1234;
+    suback.qosCount = 1;
+    suback.qosReturn = QosValue;
+    g_fnMqttOperationCallback(TEST_MQTT_CLIENT_HANDLE, MQTT_CLIENT_ON_SUBSCRIBE_ACK, &suback, g_callbackCtx);
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    memset(&message1, 0, sizeof(IOTHUB_MESSAGE_LIST));
+    message1.messageHandle = TEST_IOTHUB_MSG_STRING;
+    DList_InsertTailList(config.waitingToSend, &(message1.entry));
+
+    memset(&message2, 0, sizeof(IOTHUB_MESSAGE_LIST));
+    message2.messageHandle = TEST_IOTHUB_MSG_STRING;
+    DList_InsertTailList(config.waitingToSend, &(message2.entry));
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    g_current_ms += 5 * 60 * 1000;
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG))
+        .CopyOutArgumentBuffer(2, &g_current_ms, sizeof(g_current_ms));
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+    umock_c_reset_all_calls();
+
+    g_current_ms += 5 * 60 * 1000;
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG))
+        .CopyOutArgumentBuffer(2, &g_current_ms, sizeof(g_current_ms));
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(DList_RemoveEntryList(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(DList_InitializeListHead(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(DList_InsertTailList(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubClient_LL_SendComplete(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IOTHUB_CLIENT_CONFIRMATION_MESSAGE_TIMEOUT));
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(xio_destroy(IGNORED_PTR_ARG));
+
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_GetContentType(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_GetString(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG)); 
+    STRICT_EXPECTED_CALL(STRING_construct(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_Properties(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(Map_GetInternals(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_GetCorrelationId(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_GetMessageId(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_GetContentTypeSystemProperty(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(IoTHubMessage_GetContentEncodingSystemProperty(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(mqttmessage_create(IGNORED_NUM_ARG, IGNORED_PTR_ARG, DELIVER_AT_LEAST_ONCE, IGNORED_PTR_ARG, IGNORED_NUM_ARG));
+    STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(mqtt_client_publish(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(mqttmessage_destroy(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(STRING_delete(IGNORED_PTR_ARG));
+    STRICT_EXPECTED_CALL(mqtt_client_dowork(IGNORED_PTR_ARG));
+
+    // act
+    IoTHubTransport_MQTT_Common_DoWork(handle, TEST_IOTHUB_CLIENT_LL_HANDLE);
+
+    //assert
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    //cleanup
+    IoTHubTransport_MQTT_Common_Destroy(handle);
+}
 /* Test_SRS_IOTHUB_MQTT_TRANSPORT_07_055: [ IoTHubTransport_MQTT_Common_DoWork shall send a device twin get property message upon successfully retrieving a SUBACK on device twin topics. ] */
 TEST_FUNCTION(IoTHubTransport_MQTT_Common_DoWork_device_twin_resend_message_succeeds)
 {
@@ -4143,7 +4296,8 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_DoWork_mqtt_client_connect_times_out)
     umock_c_reset_all_calls();
 
     STRICT_EXPECTED_CALL(tickcounter_get_current_ms(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
-    STRICT_EXPECTED_CALL(mqtt_client_disconnect(TEST_MQTT_CLIENT_HANDLE))
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(TEST_MQTT_CLIENT_HANDLE))
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(xio_destroy(TEST_XIO_HANDLE))
         .IgnoreArgument(1);
@@ -4297,8 +4451,9 @@ TEST_FUNCTION(IoTHubTransport_MQTT_Common_delivered_MQTT_CLIENT_NO_PING_RESPONSE
     TRANSPORT_LL_HANDLE handle = IoTHubTransport_MQTT_Common_Create(&config, get_IO_transport);
 
     umock_c_reset_all_calls();
-    STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG));
-    STRICT_EXPECTED_CALL(xio_destroy(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(xio_retrieveoptions(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(mqtt_client_disconnect(IGNORED_PTR_ARG));
+	STRICT_EXPECTED_CALL(xio_destroy(IGNORED_PTR_ARG));
 
     // act
     g_fnMqttErrorCallback(TEST_MQTT_CLIENT_HANDLE, MQTT_CLIENT_NO_PING_RESPONSE, g_callbackCtx);
