@@ -2083,6 +2083,7 @@ static PMQTTTRANSPORT_HANDLE_DATA InitializeTransportHandleData(const IOTHUB_CLI
                     state->log_trace = state->raw_trace = false;
                     state->retryLogic = NULL;
                     srand((unsigned int)get_time(NULL));
+                    state->saved_tls_options = NULL;
                 }
             }
         }
