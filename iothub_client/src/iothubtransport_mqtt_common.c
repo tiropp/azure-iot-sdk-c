@@ -1795,6 +1795,9 @@ static int SendMqttConnectMsg(PMQTTTRANSPORT_HANDLE_DATA transport_data)
 
 static void DisconnectFromClient(PMQTTTRANSPORT_HANDLE_DATA transport_data)
 {
+    OPTIONHANDLER_HANDLE options = xio_retrieveoptions(transport_data->xioTransport);
+    set_saved_tls_options(transport_data, options);
+    
 	(void)mqtt_client_disconnect(transport_data->mqttClient);
 	xio_destroy(transport_data->xioTransport);
 	transport_data->xioTransport = NULL;
